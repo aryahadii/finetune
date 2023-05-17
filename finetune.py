@@ -1,99 +1,44 @@
-import sys
-import json
-from os import path
-from collections import defaultdict
+import argparse
+import csv
+
+from spotify_provider import SpotifyData
 
 
-class Track:
-    def __init__(self, name, artist, uri=None) -> None:
-        self.name = name
-        self.artist = artist
-        self.uri = uri
+def streaming_history(spotify_data_export_dir, output_tsv_path=None):
+    sd = SpotifyData(spotify_data_export_dir=spotify_data_export_dir)
+    played = sd.played_songs_in_library()
 
-    def __str__(self) -> str:
-        return f'{self.artist} - {self.name} [{self.uri}]'
+    output = []
+    for track, play_count in played:
+        output.append((track.uri, track.artist, track.name, play_count))
 
-    def __eq__(self, other):
-        if not isinstance(other, Track):
-            return False
-        if self.uri and other.uri:
-            return self.uri == other.uri
-        return self.name == other.name and self.artist == other.artist
-
-    def __hash__(self):
-        return hash((self.name, self.artist))
+    if output_tsv_path:
+        with open(output_tsv_path, 'w') as file:
+            w = csv.writer(file, delimiter='\t')
+            w.writerow(["URI", "ARTIST", "NAME", "PLAY_COUNT"])
+            w.writerows(output)
+    else:
+        print(output)
 
 
-class SpotifyData:
+def main():
+    parser = argparse.ArgumentParser(
+        description="Finetune, a Spotify library organizer.")
 
-    def __init__(self, spotify_data_export_dir) -> None:
-        self.data_dir = spotify_data_export_dir
+    parser.add_argument('streaming_history',
+                        metavar='streaming-history', help="list streaming history")
 
-    def play_count(self):
-        play_count = defaultdict(lambda: 0)
+    parser.add_argument('--spotify-data-dir', required=True,
+                        help="path to downloaded spotify data")
+    parser.add_argument('-o', '--output-tsv-file',
+                        help="output to file instead of stdout")
 
-        history = self._streaming_history()
-        for track in history:
-            key = Track(name=track['trackName'], artist=track['artistName'])
-            play_count[key] += 1
+    args = parser.parse_args()
 
-        return play_count
-
-    def _streaming_history(self):
-        history = []
-
-        streaming_history_file_index = 0
-        while True:
-            filepath = path.join(
-                self.data_dir, f'StreamingHistory{streaming_history_file_index}.json')
-            if not path.exists(filepath):
-                break
-
-            history += self._load_streaming_history_file(filepath)
-            streaming_history_file_index += 1
-
-        return history
-
-    def _load_streaming_history_file(self, filepath):
-        with open(filepath, 'r') as streaming_history_file:
-            streaming_history = json.load(streaming_history_file)
-            return streaming_history
-
-    def library(self):
-        tracks = []
-
-        library_filepath = path.join(self.data_dir, 'YourLibrary.json')
-        with open(library_filepath, 'r') as library_file:
-            library = json.load(library_file)
-
-            for track in library['tracks']:
-                tracks.append(Track(
-                    name=track['track'],
-                    artist=track['artist'],
-                    uri=track['uri'],
-                ))
-
-        return tracks
-
-    def _track_key(self, name, artist):
-        return f"{artist} - {name}"
-
-    def least_played_songs_in_library(self):
-        library = self.library()
-        play_count = self.play_count()
-
-        counted_library = []
-        for track in library:
-            counted_library.append((track, play_count[track]))
-        return sorted(counted_library, key=lambda t: t[1])
+    if args.streaming_history:
+        streaming_history(getattr(args, 'spotify_data_dir'),
+                          getattr(args, 'output_tsv_file'))
 
 
 if __name__ == '__main__':
-    if len(sys.argv) != 2:
-        print('args are not right')
-        exit(1)
-
-    sd = SpotifyData(spotify_data_export_dir=sys.argv[1])
-    least_played = sd.least_played_songs_in_library()
-    for track, play_count in least_played:
-        print(f'{track}: {play_count}')
+    main()
