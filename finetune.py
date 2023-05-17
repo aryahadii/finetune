@@ -27,7 +27,6 @@ def library_purge(input_tsv_path):
 
     with open(input_tsv_path, 'r') as purge_file:
         r = csv.reader(purge_file, delimiter='\t')
-        next(r)  # skip the headers
 
         for track in r:
             if re.match(r'spotify:track:\w{22}', track[0]):
