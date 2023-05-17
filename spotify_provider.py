@@ -1,9 +1,37 @@
 import json
+import yaml
 from os import path
 from collections import defaultdict
 
+import spotipy
+from spotipy.oauth2 import SpotifyOAuth
+
+
+class SpotifyAPI:
+
+    def __init__(self) -> None:
+        with open('client_auth.yaml', 'r') as client_auth:
+            y = yaml.safe_load(client_auth)
+            self.client_id = y['client_id']
+            self.client_secret = y['client_secret']
+            self.redirect_uri = y['redirect_uri']
+
+        self.api = spotipy.Spotify(
+            auth_manager=SpotifyOAuth(client_id=self.client_id,
+                                      client_secret=self.client_secret,
+                                      redirect_uri=self.redirect_uri,
+                                      scope="user-library-modify",
+                                      )
+        )
+
+    def remove_user_saved_tracks(self, tracks_uri):
+        for i in range(0, len(tracks_uri), 50):  # Spotify has 50 items limit per request
+            self.api.current_user_saved_tracks_delete(
+                tracks=tracks_uri[i:i+50])
+
 
 class Track:
+
     def __init__(self, name, artist, uri=None) -> None:
         self.name = name
         self.artist = artist

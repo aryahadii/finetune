@@ -3,5 +3,7 @@ __pycache__
 .DS_Store
 .vscode/
 
+.cache
+client_auth.yaml
 my_spotify_data/
 *.tsv
